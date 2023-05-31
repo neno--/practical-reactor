@@ -37,6 +37,7 @@ public class c4_LifecycleHooks extends LifecycleHooksBase {
         CopyOnWriteArrayList<String> hooksTriggered = new CopyOnWriteArrayList<>();
 
         Flux<Integer> temperatureFlux = room_temperature_service()
+            .doOnSubscribe(subscription -> hooksTriggered.add("subscribe"))
                 //todo: change this line only
                 ;
 
@@ -57,6 +58,7 @@ public class c4_LifecycleHooks extends LifecycleHooksBase {
 
         Flux<Integer> temperatureFlux = room_temperature_service()
                 //todo: change this line only
+            .doFirst(() -> hooksTriggered.add("before subscribe"))
                 ;
 
         StepVerifier.create(temperatureFlux.take(5).doOnSubscribe(s -> hooksTriggered.add("subscribe")))
@@ -76,6 +78,10 @@ public class c4_LifecycleHooks extends LifecycleHooksBase {
 
         Flux<Integer> temperatureFlux = room_temperature_service()
                 //todo: change this line only
+            .doOnNext(integer -> {
+                System.out.println(counter.incrementAndGet());
+                }
+            )
                 ;
 
         StepVerifier.create(temperatureFlux)
@@ -95,6 +101,7 @@ public class c4_LifecycleHooks extends LifecycleHooksBase {
 
         Flux<Integer> temperatureFlux = room_temperature_service()
                 //todo: change this line only
+            .doOnComplete(() -> completed.set(true))
                 ;
 
         StepVerifier.create(temperatureFlux.skip(20))
@@ -114,6 +121,7 @@ public class c4_LifecycleHooks extends LifecycleHooksBase {
 
         Flux<Integer> temperatureFlux = room_temperature_service()
                 //todo: change this line only
+            .doOnCancel(() -> canceled.set(true))
                 ;
 
         StepVerifier.create(temperatureFlux.take(0))
@@ -134,6 +142,7 @@ public class c4_LifecycleHooks extends LifecycleHooksBase {
 
         Flux<Integer> temperatureFlux = room_temperature_service()
                 //todo: change this line only
+            .doOnComplete(() -> hooksTriggeredCounter.incrementAndGet())
                 ;
 
         StepVerifier.create(temperatureFlux.take(0))
@@ -162,6 +171,7 @@ public class c4_LifecycleHooks extends LifecycleHooksBase {
 
         Flux<Integer> temperatureFlux = room_temperature_service()
                 //todo: change this line only
+            .doFinally(signalType -> hooksTriggeredCounter.incrementAndGet())
                 ;
 
         StepVerifier.create(temperatureFlux.take(0))
@@ -188,12 +198,12 @@ public class c4_LifecycleHooks extends LifecycleHooksBase {
         CopyOnWriteArrayList<String> sideEffects = new CopyOnWriteArrayList<>();
 
         Mono<Boolean> just = Mono.just(true)
-                                 .doFirst(() -> sideEffects.add("three"))
-                                 .doFirst(() -> sideEffects.add("two"))
-                                 .doFirst(() -> sideEffects.add("one"));
+                                 .doFirst(() -> {sideEffects.add("three"); System.out.println("three");})
+                                 .doFirst(() -> {sideEffects.add("two"); System.out.println("two");})
+                                 .doFirst(() -> {sideEffects.add("one"); System.out.println("one");});
 
         List<String> orderOfExecution =
-                Arrays.asList("todo", "todo", "todo"); //todo: change this line only
+                Arrays.asList("one", "two", "three"); //todo: change this line only
 
         StepVerifier.create(just)
                     .expectNext(true)
@@ -218,6 +228,7 @@ public class c4_LifecycleHooks extends LifecycleHooksBase {
 
         Flux<Integer> flux = Flux.just(1, 2, 3)
                 //todo: change this line only
+            .doOnEach(integerSignal -> signals.add(integerSignal.getType().name()))
                 ;
 
         StepVerifier.create(flux)
