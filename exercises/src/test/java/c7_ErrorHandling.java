@@ -1,3 +1,4 @@
+import java.time.Duration;
 import org.junit.jupiter.api.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -34,9 +35,8 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     public void houston_we_have_a_problem() {
         AtomicReference<Throwable> errorRef = new AtomicReference<>();
         Flux<String> heartBeat = probeHeartBeatSignal()
-                //todo: do your changes here
-                //todo: & here
-                ;
+            .timeout(Duration.ofSeconds(3))
+            .doOnError(errorRef::set);
 
         StepVerifier.create(heartBeat)
                     .expectNextCount(3)
@@ -54,9 +54,7 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     @Test
     public void potato_potato() {
         Mono<String> currentUser = getCurrentUser()
-                //todo: change this line only
-                //use SecurityException
-                ;
+            .onErrorMap(SecurityException::new);
 
         StepVerifier.create(currentUser)
                     .expectErrorMatches(e -> e instanceof SecurityException &&
@@ -70,9 +68,8 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
      */
     @Test
     public void under_the_rug() {
-        Flux<String> messages = messageNode();
-        //todo: change this line only
-        ;
+        Flux<String> messages = messageNode()
+            .onErrorResume(throwable -> Flux.empty());
 
         StepVerifier.create(messages)
                     .expectNext("0x1", "0x2")
@@ -86,9 +83,9 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     @Test
     public void have_a_backup() {
         //todo: feel free to change code as you need
-        Flux<String> messages = null;
-        messageNode();
-        backupMessageNode();
+        Flux<String> messages = messageNode()
+            .onErrorResume(throwable -> backupMessageNode());
+
 
         //don't change below this line
         StepVerifier.create(messages)
@@ -103,8 +100,11 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     @Test
     public void error_reporter() {
         //todo: feel free to change code as you need
-        Flux<String> messages = messageNode();
-        errorReportService(null);
+        Flux<String> messages = messageNode()
+            .onErrorResume(throwable -> errorReportService(throwable)
+                .then(Mono.error(throwable)));
+
+
 
         //don't change below this line
         StepVerifier.create(messages)
@@ -122,8 +122,11 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     @Test
     public void unit_of_work() {
         Flux<Task> taskFlux = taskQueue()
-                //todo: do your changes here
-                ;
+            .flatMap(task -> task.execute()
+                .then(task.commit())
+                .onErrorResume(task::rollback)
+                .then(Mono.just(task))
+            );
 
         StepVerifier.create(taskFlux)
                     .expectNextMatches(task -> task.executedExceptionally.get())
@@ -138,10 +141,17 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
      */
     @Test
     public void billion_dollar_mistake() {
+        /*
         Flux<String> content = getFilesContent()
-                .flatMap(Function.identity())
-                //todo: change this line only
-                ;
+                .flatMap(stringMono -> stringMono
+                    .onErrorResume(throwable -> Mono.empty()));
+         */
+
+        Flux<String> content = getFilesContent()
+            .flatMap(Function.identity())
+                .onErrorContinue((throwable, o) -> {
+                    System.out.println("this is o: " + o.toString());
+                });
 
         StepVerifier.create(content)
                     .expectNext("file1.txt content", "file3.txt content")
