@@ -1,12 +1,14 @@
 import java.time.Duration;
-import org.junit.jupiter.api.*;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
-
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import reactor.core.Exceptions;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+import reactor.util.retry.Retry;
 
 /**
  * It's time introduce some resiliency by recovering from unexpected events!
@@ -174,7 +176,9 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     public void resilience() {
         //todo: change code as you need
         Flux<String> content = getFilesContent()
-                .flatMap(Function.identity()); //start from here
+                .flatMap(stringMono -> stringMono
+                    .flatMap(Mono::just)
+                    .onErrorResume(throwable -> Mono.empty())); //start from here
 
         //don't change below this line
         StepVerifier.create(content)
@@ -189,7 +193,7 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     @Test
     public void its_hot_in_here() {
         Mono<Integer> temperature = temperatureSensor()
-                //todo: change this line only
+            .retry()
                 ;
 
         StepVerifier.create(temperature)
@@ -205,8 +209,9 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     @Test
     public void back_off() {
         Mono<String> connection_result = establishConnection()
-                //todo: change this line only
-                ;
+            .retryWhen(Retry.from(retrySignalFlux -> retrySignalFlux
+                .take(2)
+                .delayElements(Duration.ofSeconds(4))));
 
         StepVerifier.create(connection_result)
                     .expectNext("connection_established")
@@ -221,8 +226,10 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
     @Test
     public void good_old_polling() {
         //todo: change code as you need
-        Flux<String> alerts = null;
-        nodeAlerts();
+
+        Flux<String> alerts = nodeAlerts()
+            .repeat()
+                .take(2);
 
         //don't change below this line
         StepVerifier.create(alerts.take(2))
