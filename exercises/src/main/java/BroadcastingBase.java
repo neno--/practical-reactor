@@ -21,7 +21,11 @@ public class BroadcastingBase {
                        int id = counter.getAndIncrement();
                        sink.next(id);
                    })
-                   .map(i -> new Message("user#" + i, "payload#" + i))
+                   .map(i ->
+                   {
+                       System.out.println("User#" + i + " created on thread " + Thread.currentThread().getName());
+                       return new Message("user#" + i, "payload#" + i);
+                   })
                    .delayElements(Duration.ofMillis(250))
                    .take(5);
     }

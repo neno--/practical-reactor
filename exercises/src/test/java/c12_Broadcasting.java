@@ -1,5 +1,7 @@
 import org.junit.jupiter.api.*;
+import reactor.core.publisher.ConnectableFlux;
 import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 
 import java.util.Arrays;
@@ -33,6 +35,7 @@ public class c12_Broadcasting extends BroadcastingBase {
     public void sharing_is_caring() throws InterruptedException {
         Flux<Message> messages = messageStream()
                 //todo: do your changes here
+                .share()
                 ;
 
         //don't change code below
@@ -42,14 +45,18 @@ public class c12_Broadcasting extends BroadcastingBase {
         CopyOnWriteArrayList<String> metaData = new CopyOnWriteArrayList<>();
         CopyOnWriteArrayList<String> payload = new CopyOnWriteArrayList<>();
 
-        userStream.doOnNext(n -> System.out.println("User: " + n)).subscribe(metaData::add);
-        payloadStream.doOnNext(n -> System.out.println("Payload: " + n)).subscribe(payload::add);
+        System.out.println("About to subscribe...");
+        userStream.doOnNext(n -> System.out.println("User: " + n + " on thread " + Thread.currentThread().getName())).doOnSubscribe(subscription -> {
+            System.out.println("Subscribed now on thread " + Thread.currentThread().getName());
+        })
+                .subscribe(metaData::add);
+        payloadStream.doOnNext(n -> System.out.println("Payload: " + n + " on thread " + Thread.currentThread().getName())).subscribe(payload::add);
 
         Thread.sleep(3000);
 
         Assertions.assertEquals(Arrays.asList("user#0", "user#1", "user#2", "user#3", "user#4"), metaData);
         Assertions.assertEquals(Arrays.asList("payload#0", "payload#1", "payload#2", "payload#3", "payload#4"),
-                                payload);
+                               payload);
     }
 
     /**
@@ -59,14 +66,19 @@ public class c12_Broadcasting extends BroadcastingBase {
      */
     @Test
     public void hot_vs_cold() {
-        Flux<String> updates = systemUpdates()
+        ConnectableFlux<String> updates = systemUpdates()
                 //todo: do your changes here
+                .publish()
                 ;
 
+
+        updates.connect();
         //subscriber 1
         StepVerifier.create(updates.take(3).doOnNext(n -> System.out.println("subscriber 1 got: " + n)))
                     .expectNext("RESTARTED", "UNHEALTHY", "HEALTHY")
                     .verifyComplete();
+
+
 
         //subscriber 2
         StepVerifier.create(updates.take(4).doOnNext(n -> System.out.println("subscriber 2 got: " + n)))
